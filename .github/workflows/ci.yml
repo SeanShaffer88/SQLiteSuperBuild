@@ -44,9 +44,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
-        run: ./fetch.sh
+        run: sh ./fetch.sh
       - name: Build
-        run: ./build.sh
+        run: sh ./build.sh
       - name: Feature harness
         run: |
           cc -O2 -DSQLITE_ENABLE_SESSION -I vendor/src-sqlite test/test_superbuild.c -o /tmp/test_sb -L dist -lsqlite3 -lm -lpthread
