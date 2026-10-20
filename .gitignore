@@ -1,0 +1,4 @@
+vendor/
+dist/
+*.db
+test_sb*
