@@ -1,0 +1,53 @@
+# CI for SQLiteSuperBuild (custom: fetch -> build -> feature harness).
+# Lives at repo root; copied to .github/workflows/ci.yml via the web UI
+# (the GitHub App cannot write workflow files).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned sources (SHA-256 verified)
+        shell: pwsh
+        run: ./fetch.ps1
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build dll + shell + vec0
+        shell: pwsh
+        run: ./build.ps1
+      - name: Feature harness against the built DLL
+        shell: pwsh
+        run: |
+          cl /nologo /O2 /MD /DSQLITE_ENABLE_SESSION test/test_superbuild.c /I vendor/src-sqlite /Fe:test_sb.exe /link dist/sqlite3.lib
+          $env:PATH = "$PWD/dist;$env:PATH"
+          ./test_sb.exe dist/vec0.dll test_sb_tmp.db
+          if ($LASTEXITCODE -ne 0) { throw "feature harness failed" }
+      - name: Shell smoke
+        shell: pwsh
+        run: |
+          $v = ./dist/sqlite3.exe --version
+          Write-Host $v
+          if ($v -notmatch '^3\.54\.1 ') { throw "unexpected shell version: $v" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-superbuild-windows-x64
+          path: |
+            dist/sqlite3.dll
+            dist/sqlite3.lib
+            dist/sqlite3.exe
+            dist/vec0.dll
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned sources (SHA-256 verified)
+        run: ./fetch.sh
+      - name: Build
+        run: ./build.sh
+      - name: Feature harness
+        run: |
+          cc -O2 -DSQLITE_ENABLE_SESSION -I vendor/src-sqlite test/test_superbuild.c -o /tmp/test_sb -L dist -lsqlite3 -lm -lpthread
+          LD_LIBRARY_PATH=dist /tmp/test_sb dist/vec0.so /tmp/sb_tmp.db
