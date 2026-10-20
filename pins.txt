@@ -1,0 +1,10 @@
+# Pinned upstream sources. fetch.sh / fetch.ps1 refuse to proceed when a
+# downloaded file's SHA-256 does not match the pin. Bump = change version
+# + hash together, in one commit, and re-run the feature harness.
+SQLITE_VERSION=3.54.1
+SQLITE_AMALGAMATION=sqlite-amalgamation-3540100
+SQLITE_URL=https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip
+SQLITE_SHA256=0a9c8e34352dad46006aa82836d5383bff9dc6bc9ce5a60553c05aa30e6ad1f9
+SQLITE_VEC_VERSION=0.1.9
+SQLITE_VEC_URL=https://github.com/asg017/sqlite-vec/releases/download/v0.1.9/sqlite-vec-0.1.9-amalgamation.zip
+SQLITE_VEC_SHA256=b87cdda12112657ba5ab8842f0088a4090982eaf41f22b2bd6d495b81765a8c9
