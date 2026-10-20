@@ -1,0 +1,16 @@
+SQLite is public domain.
+
+The SQLite source code, including the amalgamation fetched by this
+repository, is dedicated to the public domain by its authors. The
+canonical statement (from the SQLite source header):
+
+"The author disclaims copyright to this source code. In place of a legal
+notice, here is a blessing: May you do good and not evil. May you find
+forgiveness for yourself and forgive others. May you share freely, never
+taking more than you give."
+
+See https://www.sqlite.org/copyright.html for details.
+
+sqlite-vec (a separate, optional component fetched from its official
+release) is dual-licensed MIT / Apache-2.0 by Alex Garcia; see
+https://github.com/asg017/sqlite-vec for its license texts.
