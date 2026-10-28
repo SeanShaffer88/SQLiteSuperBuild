@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
         run: ./fetch.ps1
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Build dll + shell + vec0
         run: ./build.ps1
       - name: Package x64 zip
