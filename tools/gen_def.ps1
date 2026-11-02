@@ -74,7 +74,11 @@ for ($i = 0; $i -lt $nnames; $i++) {
     while ($bytes[$end] -ne 0) { $end++ }
     $names.Add([System.Text.Encoding]::ASCII.GetString($bytes, $no, $end - $no))
 }
-$names = @($names | Where-Object { $_ -like "$prefix*" } | Sort-Object -Unique)
+$filtered = @($names | Where-Object { $_ -like "$prefix*" })
+$unique = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($n in $filtered) { [void]$unique.Add($n) }
+$names = [System.Collections.ArrayList]@($unique)
+$names.Sort([System.StringComparer]::Ordinal)
 if ($names.Count -eq 0) { throw "no symbols matching '$prefix*' found in $lib" }
 
 $header = @(

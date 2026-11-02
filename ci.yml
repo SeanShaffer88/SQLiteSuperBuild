@@ -9,9 +9,6 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
-    permissions:
-      checks: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
@@ -23,35 +20,16 @@ jobs:
         run: ./build.ps1
       - name: Generate export lists from the built DLLs
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          try {
-            ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
-            ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
-          } catch {
-            $msg = "ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
-            try {
-              gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="debug from CI: $msg"
-            } catch { Write-Host "could not comment: $_" }
-            throw
-          }
+          ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
+          ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
       - name: Checked-in export lists match the built DLLs
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $d1 = @(git diff --no-index sqlite3.def dist/sqlite3.def)
-          $rc1 = $LASTEXITCODE
-          $d2 = @(git diff --no-index vec0.def dist/vec0.def)
-          $rc2 = $LASTEXITCODE
-          if ($rc1 -ne 0 -or $rc2 -ne 0) {
-            $msg = "sqlite3.def diff (exit $rc1):`n$($d1 -join "`n")`nvec0.def diff (exit $rc2):`n$($d2 -join "`n")"
-            $msg | Set-Content -Path defdiff.txt
-            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -F body=@defdiff.txt
-            throw "defs are stale"
-          }
+          git diff --no-index --exit-code sqlite3.def dist/sqlite3.def
+          if ($LASTEXITCODE -ne 0) { throw "sqlite3.def is stale; commit the generated file" }
+          git diff --no-index --exit-code vec0.def dist/vec0.def
+          if ($LASTEXITCODE -ne 0) { throw "vec0.def is stale; commit the generated file" }
       - name: Feature harness against the built DLL
         shell: pwsh
         run: |
