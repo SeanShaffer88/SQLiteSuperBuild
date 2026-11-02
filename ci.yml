@@ -25,7 +25,7 @@ jobs:
         shell: pwsh
         run: |
           ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
-          ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
+          ./tools/gen_def.ps1 dist/vec0.dll dist/vec0.def sqlite3_vec
       - name: Debug comment test
         shell: pwsh
         env:
