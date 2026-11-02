@@ -9,6 +9,8 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
@@ -23,6 +25,17 @@ jobs:
         run: |
           ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
           ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
+      - name: Debug: publish generated defs
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git checkout -b debug-defs
+          Copy-Item dist/sqlite3.def windows-sqlite3.def
+          Copy-Item dist/vec0.def windows-vec0.def
+          git add windows-sqlite3.def windows-vec0.def
+          git commit -m "debug: windows defs"
+          git push origin debug-defs
       - name: Checked-in export lists match the built DLLs
         shell: pwsh
         env:
