@@ -32,9 +32,8 @@ jobs:
             ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
           } catch {
             $msg = "ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
-            $body = @{ body = "gen_def debug`n$msg" } | ConvertTo-Json -Depth 5
             try {
-              gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/json" -InputObject $body
+              gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="debug from CI: $msg"
             } catch { Write-Host "could not comment: $_" }
             throw
           }
