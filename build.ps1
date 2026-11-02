@@ -1,6 +1,9 @@
 # Build sqlite3.dll + sqlite3.exe (shell) + vec0.dll (Windows, MSVC).
 # Requires fetch.ps1 first and a Visual Studio developer environment
 # (cl on PATH). Output: dist/
+# On Windows ARM64, run from the ARM64 developer prompt (or use
+# ilammy/msvc-dev-cmd with arch: arm64); the same script produces ARM64
+# binaries.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 if (-not (Test-Path vendor/src-sqlite/sqlite3.c)) { throw "run .\fetch.ps1 first" }

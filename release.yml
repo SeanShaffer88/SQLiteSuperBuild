@@ -1,23 +1,35 @@
-# Release workflow — builds the pinned SQLite bundle and attaches it
-# to the GitHub Release for the pushed version tag. The release
-# itself (tag + notes) is created in the GitHub web UI; this workflow
-# only builds and uploads the zip. Binaries are unsigned.
+# Release workflow — builds the pinned SQLite bundle for x64 and ARM64
+# and attaches the zips to the GitHub Release for the pushed version tag.
+# The release itself (tag + notes) is created in the GitHub web UI; this
+# workflow only builds and uploads the zips. Binaries are unsigned.
 name: release
 on:
   push:
     tags: ["v*"]
 jobs:
   release:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
+    strategy:
+      max-parallel: 1
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            suffix: x64
+          - arch: arm64
+            runner: windows-11-arm
+            suffix: arm64
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
         shell: pwsh
         run: ./fetch.ps1
       - uses: ilammy/msvc-dev-cmd@v1
-      - name: Build dll + shell + vec0
+        with:
+          arch: ${{ matrix.arch }}
+      - name: Build dll + shell + vec0 (${{ matrix.suffix }})
         shell: pwsh
         run: ./build.ps1
       - name: Generate export lists from the built DLLs
@@ -39,24 +51,25 @@ jobs:
           $b2 = @(Get-DefSymbols dist/vec0.def | Sort-Object)
           $d2 = @(Compare-Object $a2 $b2)
           if ($d2) { throw "vec0.def is stale; commit the generated file" }
-      - name: Feature harness against the built DLL
+      - name: Feature harness against the built DLL (${{ matrix.suffix }})
         shell: pwsh
         run: |
           cl /nologo /O2 /MD /DSQLITE_ENABLE_SESSION test/test_superbuild.c /I vendor/src-sqlite /Fe:test_sb.exe /link dist/sqlite3.lib
           $env:PATH = "$PWD/dist;$env:PATH"
           ./test_sb.exe dist/vec0.dll test_sb_tmp.db
           if ($LASTEXITCODE -ne 0) { throw "feature harness failed" }
-      - name: Shell smoke
+      - name: Shell smoke (${{ matrix.suffix }})
         shell: pwsh
         run: |
           $v = ./dist/sqlite3.exe --version
           Write-Host $v
           if ($v -notmatch '^3\.54\.1 ') { throw "unexpected shell version: $v" }
-      - name: Package x64 zip
+      - name: Package zip
         shell: pwsh
         run: |
           $ver = "${{ github.ref_name }}"
-          $stage = "pkg/SQLiteSuperBuild-$ver-x64"
+          $suffix = "${{ matrix.suffix }}"
+          $stage = "pkg/SQLiteSuperBuild-$ver-$suffix"
           New-Item -ItemType Directory -Force $stage | Out-Null
           Copy-Item "dist/sqlite3.dll" $stage
           Copy-Item "dist/sqlite3.lib" $stage
@@ -68,7 +81,7 @@ jobs:
           Copy-Item LICENSE $stage
           Copy-Item SQLITE_LICENSE.txt $stage
           Copy-Item README.md $stage
-          Compress-Archive -Path "$stage/*" -DestinationPath "SQLiteSuperBuild-$ver-x64.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath "SQLiteSuperBuild-$ver-$suffix.zip"
       - uses: softprops/action-gh-release@v2
         with:
           files: "*.zip"

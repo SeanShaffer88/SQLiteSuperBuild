@@ -21,8 +21,9 @@ that every feature works in the produced DLL.
 
 ## Get it
 
-Download the CI artifact (`sqlite-superbuild-windows-x64`) from the
-Actions tab, or build it yourself:
+Download the CI artifact (`sqlite-superbuild-windows-x64` or
+`sqlite-superbuild-windows-arm64`) from the Actions tab, or build it
+yourself:
 
 ```powershell
 ./fetch.ps1    # downloads SQLite 3.54.1 + sqlite-vec 0.1.9, verifies SHA-256
@@ -32,6 +33,12 @@ Actions tab, or build it yourself:
 
 Linux/macOS: `./fetch.sh && ./build.sh` produces `libsqlite3.so`,
 `sqlite3`, and `vec0.so`.
+
+Release zips are published for both Windows architectures:
+`SQLiteSuperBuild-vX.Y.Z-x64.zip` and
+`SQLiteSuperBuild-vX.Y.Z-arm64.zip`. The ARM64 zip contains the ARM64
+DLL, import library, shell, and vec0 extension; the defs and headers
+are identical for both architectures.
 
 The release zip also carries `sqlite3.def` and `vec0.def` — export
 lists for toolchains that cannot generate an import library from a DLL
@@ -64,8 +71,8 @@ identically.
 option, and a live functional check per feature (FTS5 MATCH, JSON
 extract + `->>`, RTREE range query, geopoly_area, math functions,
 session changeset capture, dbstat on a file database, vec0 KNN). CI
-runs it against the built artifacts on Windows and Linux. The README
-claims nothing the harness does not check.
+runs it against the built artifacts on Windows x64, Windows ARM64, and
+Linux. The README claims nothing the harness does not check.
 
 The export lists are part of the contract too: CI regenerates
 `sqlite3.def` / `vec0.def` from the built DLLs and compares them to the

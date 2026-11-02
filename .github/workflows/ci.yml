@@ -60,6 +60,61 @@ jobs:
             dist/vec0.dll
             sqlite3.def
             vec0.def
+  windows-arm64:
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned sources (SHA-256 verified)
+        shell: pwsh
+        run: ./fetch.ps1
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: arm64
+      - name: Build dll + shell + vec0 (ARM64)
+        shell: pwsh
+        run: ./build.ps1
+      - name: Generate export lists from the built DLLs
+        shell: pwsh
+        run: |
+          ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
+          ./tools/gen_def.ps1 dist/vec0.dll dist/vec0.def sqlite3_vec
+      - name: Checked-in export lists match the built DLLs
+        shell: pwsh
+        run: |
+          function Get-DefSymbols($path) {
+              Get-Content $path | Where-Object { $_ -notmatch '^;' -and $_.Trim() -ne '' -and $_ -ne 'EXPORTS' }
+          }
+          $a1 = @(Get-DefSymbols sqlite3.def | Sort-Object)
+          $b1 = @(Get-DefSymbols dist/sqlite3.def | Sort-Object)
+          $d1 = @(Compare-Object $a1 $b1)
+          if ($d1) { throw "sqlite3.def is stale; commit the generated file" }
+          $a2 = @(Get-DefSymbols vec0.def | Sort-Object)
+          $b2 = @(Get-DefSymbols dist/vec0.def | Sort-Object)
+          $d2 = @(Compare-Object $a2 $b2)
+          if ($d2) { throw "vec0.def is stale; commit the generated file" }
+      - name: Feature harness against the built DLL (ARM64)
+        shell: pwsh
+        run: |
+          cl /nologo /O2 /MD /DSQLITE_ENABLE_SESSION test/test_superbuild.c /I vendor/src-sqlite /Fe:test_sb.exe /link dist/sqlite3.lib
+          $env:PATH = "$PWD/dist;$env:PATH"
+          ./test_sb.exe dist/vec0.dll test_sb_tmp.db
+          if ($LASTEXITCODE -ne 0) { throw "feature harness failed" }
+      - name: Shell smoke (ARM64)
+        shell: pwsh
+        run: |
+          $v = ./dist/sqlite3.exe --version
+          Write-Host $v
+          if ($v -notmatch '^3\.54\.1 ') { throw "unexpected shell version: $v" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-superbuild-windows-arm64
+          path: |
+            dist/sqlite3.dll
+            dist/sqlite3.lib
+            dist/sqlite3.exe
+            dist/vec0.dll
+            sqlite3.def
+            vec0.def
   linux:
     runs-on: ubuntu-latest
     steps:

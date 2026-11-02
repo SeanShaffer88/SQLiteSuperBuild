@@ -11,6 +11,13 @@ shell and both defs; the release job runs the same fetch/build/harness
 gate as CI; the harness's `vec_version()` check is real (it was a no-op
 before).
 
+**v0.1.2** — Windows ARM64 artifact alongside x64. The release workflow
+builds both architectures on native runners (`windows-latest` and
+`windows-11-arm`), runs the same fetch/build/defs/harness/shell-smoke
+gate on each, and publishes `SQLiteSuperBuild-vX.Y.Z-x64.zip` and
+`SQLiteSuperBuild-vX.Y.Z-arm64.zip`. The defs are architecture-neutral
+and verified against both DLLs.
+
 **Ongoing**
 - Version bumps: change pins.txt (version + SHA-256 in one commit),
   re-run fetch + build + harness, regenerate the defs, commit, tag.
@@ -20,4 +27,3 @@ before).
 **Candidates**
 - ICU-enabled variant as a second artifact (locale collations), clearly
   separated from the drop-in build.
-- ARM64 Windows artifact alongside x64.
