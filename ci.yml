@@ -1,6 +1,6 @@
-# CI for SQLiteSuperBuild (custom: fetch -> build -> feature harness).
-# Lives at repo root; copied to .github/workflows/ci.yml via the web UI
-# (the GitHub App cannot write workflow files).
+# CI for SQLiteSuperBuild (custom: fetch -> build -> export lists -> harness).
+# Canonical workflow file: .github/workflows/ci.yml. This root copy is kept
+# in sync for reference; GitHub runs the workflow file.
 name: ci
 on:
   push:
@@ -18,6 +18,25 @@ jobs:
       - name: Build dll + shell + vec0
         shell: pwsh
         run: ./build.ps1
+      - name: Generate export lists from the built DLLs
+        shell: pwsh
+        run: |
+          ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
+          ./tools/gen_def.ps1 dist/vec0.dll dist/vec0.def sqlite3_vec
+      - name: Checked-in export lists match the built DLLs
+        shell: pwsh
+        run: |
+          function Get-DefSymbols($path) {
+              Get-Content $path | Where-Object { $_ -notmatch '^;' -and $_.Trim() -ne '' -and $_ -ne 'EXPORTS' }
+          }
+          $a1 = @(Get-DefSymbols sqlite3.def | Sort-Object)
+          $b1 = @(Get-DefSymbols dist/sqlite3.def | Sort-Object)
+          $d1 = @(Compare-Object $a1 $b1)
+          if ($d1) { throw "sqlite3.def is stale; commit the generated file" }
+          $a2 = @(Get-DefSymbols vec0.def | Sort-Object)
+          $b2 = @(Get-DefSymbols dist/vec0.def | Sort-Object)
+          $d2 = @(Compare-Object $a2 $b2)
+          if ($d2) { throw "vec0.def is stale; commit the generated file" }
       - name: Feature harness against the built DLL
         shell: pwsh
         run: |
@@ -39,6 +58,8 @@ jobs:
             dist/sqlite3.lib
             dist/sqlite3.exe
             dist/vec0.dll
+            sqlite3.def
+            vec0.def
   linux:
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +68,25 @@ jobs:
         run: sh ./fetch.sh
       - name: Build
         run: sh ./build.sh
+      - name: Generate export lists and compare with the checked-in defs
+        run: |
+          sh tools/gen_def.sh dist/libsqlite3.so /tmp/sqlite3.def
+          sh tools/gen_def.sh dist/vec0.so /tmp/vec0.def sqlite3_vec
+          # The checked-in defs are generated from the Windows DLLs and also
+          # list the Windows-only sqlite3_win32_* helpers. Compare the symbols
+          # that must be present on both platforms.
+          grep -v '^sqlite3_win32_' sqlite3.def | grep -v '^;' | grep -v '^EXPORTS' | grep -v '^$' | sort > /tmp/checked.syms
+          grep -v '^;' /tmp/sqlite3.def | grep -v '^EXPORTS' | grep -v '^$' | sort > /tmp/generated.syms
+          diff -u /tmp/checked.syms /tmp/generated.syms
+          grep -v '^;' vec0.def | grep -v '^EXPORTS' | grep -v '^$' | sort > /tmp/checked.vec.syms
+          grep -v '^;' /tmp/vec0.def | grep -v '^EXPORTS' | grep -v '^$' | sort > /tmp/generated.vec.syms
+          diff -u /tmp/checked.vec.syms /tmp/generated.vec.syms
       - name: Feature harness
         run: |
           cc -O2 -DSQLITE_ENABLE_SESSION -I vendor/src-sqlite test/test_superbuild.c -o /tmp/test_sb -L dist -lsqlite3 -lm -lpthread
           LD_LIBRARY_PATH=dist /tmp/test_sb dist/vec0.so /tmp/sb_tmp.db
+      - name: Shell smoke
+        run: |
+          v=$(./dist/sqlite3 --version)
+          echo "$v"
+          case "$v" in 3.54.1*) ;; *) echo "unexpected shell version: $v"; exit 1;; esac

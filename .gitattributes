@@ -1,0 +1,4 @@
+# Generated export lists and POSIX scripts must keep LF line endings on
+# every platform: CI regenerates the defs and compares them byte-for-byte.
+*.def text eol=lf
+*.sh text eol=lf

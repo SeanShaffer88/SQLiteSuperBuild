@@ -129,7 +129,8 @@ int main(int argc, char **argv) {
                 && query_int_is(db,
                     "SELECT rowid FROM items WHERE embedding MATCH '[1,0,0,0]' ORDER BY distance LIMIT 1", 1);
             report(v, "vec0 KNN query", "nearest neighbor is rowid 1");
-            report(query_text_is(db, "SELECT vec_version() IS NOT NULL", "1") || 1, "vec_version()", "");
+            report(query_text_is(db, "SELECT vec_version() IS NOT NULL", "1"),
+                   "vec_version()", "extension is live");
         }
     } else {
         printf("SKIP vec0 (no path given)\n");
