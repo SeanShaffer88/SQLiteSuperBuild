@@ -11,6 +11,7 @@ jobs:
     runs-on: windows-latest
     permissions:
       checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
@@ -24,16 +25,17 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           try {
             ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
             ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
           } catch {
             $msg = "ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
-            $body = @{ head_sha = $env:GITHUB_SHA; name = 'debug-gen-def'; status = 'completed'; conclusion = 'failure'; output = @{ title = 'gen_def error'; summary = $msg } } | ConvertTo-Json -Depth 5
+            $body = @{ body = "gen_def debug:`n```n$msg`n```" } | ConvertTo-Json -Depth 5
             try {
-              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/check-runs" -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' } -Body $body -ContentType 'application/json' | Out-Null
-            } catch { Write-Host "could not create check run: $_" }
+              Invoke-RestMethod -Method Post -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' } -Body $body -ContentType 'application/json' | Out-Null
+            } catch { Write-Host "could not comment: $_" }
             throw
           }
       - name: Checked-in export lists match the built DLLs
