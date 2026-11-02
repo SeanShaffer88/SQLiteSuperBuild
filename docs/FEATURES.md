@@ -63,6 +63,10 @@ fails on any difference, and the Linux job checks that every exported
 symbol is covered. A flag change that alters the ABI therefore fails
 the build instead of silently breaking consumers.
 
+Export names are architecture-neutral: the x64 and ARM64 DLLs export
+the same symbols, so the same defs serve both. The ARM64 build runs the
+same def comparison in CI.
+
 ## Licenses
 
 SQLite is public domain (see SQLITE_LICENSE.txt). sqlite-vec is

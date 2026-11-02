@@ -5,5 +5,6 @@
 - The feature harness (test/test_superbuild.c) defines what may be claimed: README/docs feature lists must not exceed what it checks. Add a check before adding a claim.
 - Drop-in rule: no behavior-changing defaults vs stock SQLite (no DQS=0, no page/cache overrides). Feature-enabling flags only.
 - Export lists: sqlite3.def / vec0.def are generated from the built artifacts by tools/gen_def.ps1 (Windows) / tools/gen_def.sh (Linux). CI compares them to the checked-in files; never edit them by hand.
-- The canonical WinDevKit ci.yml is cargo-based and does NOT apply here; this repo's ci.yml is a custom fetch/build/test workflow. CI must run the harness against the built artifacts on Windows AND Linux.
-- Gate equivalent for this repo: fetch (hash verify) -> build -> export lists match -> harness 0 failures -> shell smoke (`sqlite3 --version` matches pins.txt).
+- The canonical WinDevKit ci.yml is cargo-based and does NOT apply here; this repo's ci.yml is a custom fetch/build/test workflow. CI must run the harness against the built artifacts on Windows x64, Windows ARM64, and Linux.
+- Windows ARM64 uses the `windows-11-arm` runner label with `ilammy/msvc-dev-cmd` `arch: arm64`; the same build scripts and harness run natively.
+- Gate equivalent for this repo: fetch (hash verify) -> build -> export lists match -> harness 0 failures -> shell smoke (`sqlite3 --version` matches pins.txt) on x64, ARM64, and Linux.
