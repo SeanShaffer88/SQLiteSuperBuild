@@ -7,9 +7,10 @@
 #   pwsh tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
 #   pwsh tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
 #
-# Requires dumpbin on PATH (run from a Visual Studio developer prompt, or
-# use ilammy/msvc-dev-cmd in CI). The checked-in defs are generated from
-# the release build; CI regenerates and compares them.
+# The export table is read directly from the PE file, so this works from a
+# plain PowerShell prompt (no dumpbin / Visual Studio developer prompt
+# required). The checked-in defs are generated from the release build; CI
+# regenerates and compares them.
 $ErrorActionPreference = 'Stop'
 
 $lib = $args[0]
@@ -20,35 +21,58 @@ if (-not $lib -or -not $out) {
 }
 if (-not (Test-Path $lib)) { throw "no such DLL: $lib" }
 
-# dumpbin ships with MSVC; find it even when the developer prompt only put
-# cl/link on PATH.
-function Find-Dumpbin {
-    $cmd = Get-Command dumpbin -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-    if (Test-Path $vswhere) {
-        $msvc = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-        if ($msvc) {
-            $dirs = Get-ChildItem (Join-Path $msvc 'VC\Tools\MSVC') -Directory -ErrorAction SilentlyContinue |
-                Sort-Object Name -Descending
-            foreach ($dir in $dirs) {
-                $exe = Join-Path $dir.FullName 'bin\Hostx64\x64\dumpbin.exe'
-                if (Test-Path $exe) { return $exe }
-            }
-        }
+$bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $lib).Path)
+function Get-U16([int]$offset) { [BitConverter]::ToUInt16($bytes, $offset) }
+function Get-U32([int]$offset) { [BitConverter]::ToUInt32($bytes, $offset) }
+
+$peOff = Get-U32 0x3c
+if ([System.Text.Encoding]::ASCII.GetString($bytes, $peOff, 4) -ne "PE`0`0") {
+    throw "$lib is not a PE file"
+}
+$coff = $peOff + 4
+$nsec = Get-U16 ($coff + 2)
+$sizeopt = Get-U16 ($coff + 16)
+$opt = $coff + 20
+$magic = Get-U16 $opt
+$ddOff = $opt + $(if ($magic -eq 0x10b) { 96 } else { 112 })
+$expRva = Get-U32 $ddOff
+$expSize = Get-U32 ($ddOff + 4)
+if ($expRva -eq 0) { throw "$lib has no export table" }
+
+$secOff = $opt + $sizeopt
+$sections = @()
+for ($i = 0; $i -lt $nsec; $i++) {
+    $o = $secOff + $i * 40
+    $sections += [pscustomobject]@{
+        VSize = Get-U32 ($o + 8)
+        VAddr = Get-U32 ($o + 12)
+        RSize = Get-U32 ($o + 16)
+        RPtr  = Get-U32 ($o + 20)
     }
-    throw "dumpbin not found; run from a Visual Studio developer prompt or use ilammy/msvc-dev-cmd"
 }
 
-$dumpbin = Find-Dumpbin
-Write-Host "using $dumpbin"
+function RvaToOff([uint32]$rva) {
+    foreach ($s in $sections) {
+        $span = [Math]::Max($s.VSize, $s.RSize)
+        if ($rva -ge $s.VAddr -and $rva -lt ($s.VAddr + $span)) {
+            return [int]($s.RPtr + ($rva - $s.VAddr))
+        }
+    }
+    throw "RVA 0x$($rva.ToString('X')) is not in any section"
+}
+
+$eo = RvaToOff $expRva
+$nnames = Get-U32 ($eo + 24)
+$anames = Get-U32 ($eo + 32)
+$ao = RvaToOff $anames
 
 $names = New-Object System.Collections.Generic.List[string]
-foreach ($line in (& $dumpbin /EXPORTS $lib)) {
-    # "  ordinal hint RVA name" - the symbol is the last column.
-    if ($line -match '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)\s*$') {
-        $names.Add($Matches[1])
-    }
+for ($i = 0; $i -lt $nnames; $i++) {
+    $nrva = Get-U32 ($ao + $i * 4)
+    $no = RvaToOff $nrva
+    $end = $no
+    while ($bytes[$end] -ne 0) { $end++ }
+    $names.Add([System.Text.Encoding]::ASCII.GetString($bytes, $no, $end - $no))
 }
 $names = @($names | Where-Object { $_ -like "$prefix*" } | Sort-Object -Unique)
 if ($names.Count -eq 0) { throw "no symbols matching '$prefix*' found in $lib" }
@@ -61,6 +85,7 @@ $header = @(
 $body = foreach ($name in $names) {
     if ($name -eq 'sqlite3_version') { "$name DATA" } else { $name }
 }
+
 # LF line endings keep the generated file byte-identical to the checked-in
 # def on every platform (Windows tools accept LF in .def files).
 $text = (($header + $body) -join "`n") + "`n"
