@@ -36,7 +36,8 @@ jobs:
             $d1 = @(git diff --no-index sqlite3.def dist/sqlite3.def)
             $d2 = @(git diff --no-index vec0.def dist/vec0.def)
             $msg = "sqlite3.def: $h1 vs $h2`nvec0.def: $h3 vs $h4`n--- sqlite3.def diff ---`n$($d1 -join "`n")`n--- vec0.def diff ---`n$($d2 -join "`n")"
-            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="$msg"
+            $msg | Set-Content -Path defdiff.txt
+            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -F body=@defdiff.txt
             throw "defs are stale"
           }
       - name: Feature harness against the built DLL
