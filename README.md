@@ -33,6 +33,19 @@ Actions tab, or build it yourself:
 Linux/macOS: `./fetch.sh && ./build.sh` produces `libsqlite3.so`,
 `sqlite3`, and `vec0.so`.
 
+The release zip also carries `sqlite3.def` and `vec0.def` — export
+lists for toolchains that cannot generate an import library from a DLL
+on their own. With MinGW-w64:
+
+```sh
+dlltool -d sqlite3.def -l libsqlite3.a
+dlltool -d vec0.def -l libvec0.a
+```
+
+With LLVM: `llvm-dlltool -d sqlite3.def -l libsqlite3.a`. CI
+regenerates both defs from the built DLLs and fails if the checked-in
+copies are stale.
+
 ## Feature set
 
 Full matrix with rationale in [docs/FEATURES.md](docs/FEATURES.md).
@@ -54,11 +67,18 @@ session changeset capture, dbstat on a file database, vec0 KNN). CI
 runs it against the built artifacts on Windows and Linux. The README
 claims nothing the harness does not check.
 
+The export lists are part of the contract too: CI regenerates
+`sqlite3.def` / `vec0.def` from the built DLLs and compares them to the
+checked-in files, so a flag change cannot silently alter the public
+ABI.
+
 ## Updating SQLite
 
 Bump `pins.txt` (version + SHA-256 together), run fetch + build +
-harness, commit. The pins are the supply chain: if the hash does not
-match, the fetch refuses to proceed.
+harness, regenerate the defs (`pwsh tools/gen_def.ps1 ...` on Windows,
+`sh tools/gen_def.sh ...` elsewhere), commit the pins and the defs
+together, then tag. The pins are the supply chain: if the hash does
+not match, the fetch refuses to proceed.
 
 ## License
 

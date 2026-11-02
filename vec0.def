@@ -1,0 +1,6 @@
+; SQLite SuperBuild export list
+; Generated from dist/vec0.dll by tools/gen_def.ps1; do not edit by hand.
+EXPORTS
+sqlite3_vec_init
+sqlite3_vec_numpy_init
+sqlite3_vec_static_blobs_init

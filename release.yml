@@ -14,10 +14,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
+        shell: pwsh
         run: ./fetch.ps1
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build dll + shell + vec0
+        shell: pwsh
         run: ./build.ps1
+      - name: Generate export lists from the built DLLs
+        shell: pwsh
+        run: |
+          ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
+          ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
+      - name: Checked-in export lists match the built DLLs
+        shell: pwsh
+        run: |
+          git diff --no-index --exit-code sqlite3.def dist/sqlite3.def
+          if ($LASTEXITCODE -ne 0) { throw "sqlite3.def is stale; commit the generated file" }
+          git diff --no-index --exit-code vec0.def dist/vec0.def
+          if ($LASTEXITCODE -ne 0) { throw "vec0.def is stale; commit the generated file" }
+      - name: Feature harness against the built DLL
+        shell: pwsh
+        run: |
+          cl /nologo /O2 /MD /DSQLITE_ENABLE_SESSION test/test_superbuild.c /I vendor/src-sqlite /Fe:test_sb.exe /link dist/sqlite3.lib
+          $env:PATH = "$PWD/dist;$env:PATH"
+          ./test_sb.exe dist/vec0.dll test_sb_tmp.db
+          if ($LASTEXITCODE -ne 0) { throw "feature harness failed" }
+      - name: Shell smoke
+        shell: pwsh
+        run: |
+          $v = ./dist/sqlite3.exe --version
+          Write-Host $v
+          if ($v -notmatch '^3\.54\.1 ') { throw "unexpected shell version: $v" }
       - name: Package x64 zip
         shell: pwsh
         run: |
@@ -26,7 +53,10 @@ jobs:
           New-Item -ItemType Directory -Force $stage | Out-Null
           Copy-Item "dist/sqlite3.dll" $stage
           Copy-Item "dist/sqlite3.lib" $stage
+          Copy-Item "dist/sqlite3.exe" $stage
           Copy-Item "dist/vec0.dll" $stage
+          Copy-Item "sqlite3.def" $stage
+          Copy-Item "vec0.def" $stage
           Copy-Item "vendor/src-sqlite/sqlite3.h" $stage
           Copy-Item LICENSE $stage
           Copy-Item SQLITE_LICENSE.txt $stage

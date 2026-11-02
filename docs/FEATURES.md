@@ -45,6 +45,24 @@ A SuperBuild is a **drop-in**: behavior-affecting defaults stay stock.
 - No ICU: it adds a large external dependency for locale collation;
   add it downstream if you need it.
 
+## Packaging: export lists
+
+`sqlite3.def` and `vec0.def` list the public exports of the built DLLs.
+They let non-MSVC toolchains generate import libraries without running
+`dumpbin` themselves:
+
+```sh
+dlltool -d sqlite3.def -l libsqlite3.a        # MinGW-w64
+llvm-dlltool -d sqlite3.def -l libsqlite3.a   # LLVM
+```
+
+The defs are generated from the built artifacts by
+`tools/gen_def.ps1` (Windows) or `tools/gen_def.sh` (Linux) and are
+verified in CI: the Windows job regenerates them from the DLLs and
+fails on any difference, and the Linux job checks that every exported
+symbol is covered. A flag change that alters the ABI therefore fails
+the build instead of silently breaking consumers.
+
 ## Licenses
 
 SQLite is public domain (see SQLITE_LICENSE.txt). sqlite-vec is
