@@ -38,7 +38,7 @@ jobs:
           $b2 = @(Get-DefSymbols dist/vec0.def | Sort-Object)
           $d2 = @(Compare-Object $a2 $b2)
           if ($d1 -or $d2) {
-            $msg = "sqlite3.def compare:`n$($d1 | Format-Table -AutoSize | Out-String)`nvec0.def compare:`n$($d2 | Format-Table -AutoSize | Out-String)"
+            $msg = "sqlite3 diff count=$($d1.Count) first=$($d1 | Select-Object -First 6 | Out-String) vec0 diff count=$($d2.Count) first=$($d2 | Select-Object -First 6 | Out-String)"
             gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="$msg"
             throw "defs are stale"
           }
