@@ -25,14 +25,19 @@ jobs:
           ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
       - name: Checked-in export lists match the built DLLs
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           function Get-DefSymbols($path) {
               Get-Content $path | Where-Object { $_ -notmatch '^;' -and $_.Trim() -ne '' -and $_ -ne 'EXPORTS' }
           }
           $d1 = @(Compare-Object (Get-DefSymbols sqlite3.def) (Get-DefSymbols dist/sqlite3.def))
-          if ($d1) { throw "sqlite3.def is stale; commit the generated file" }
           $d2 = @(Compare-Object (Get-DefSymbols vec0.def) (Get-DefSymbols dist/vec0.def))
-          if ($d2) { throw "vec0.def is stale; commit the generated file" }
+          if ($d1 -or $d2) {
+            $msg = "sqlite3.def compare:`n$($d1 | Format-Table -AutoSize | Out-String)`nvec0.def compare:`n$($d2 | Format-Table -AutoSize | Out-String)"
+            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="$msg"
+            throw "defs are stale"
+          }
       - name: Feature harness against the built DLL
         shell: pwsh
         run: |
