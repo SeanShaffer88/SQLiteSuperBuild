@@ -89,5 +89,7 @@ $body = foreach ($name in $names) {
 # LF line endings keep the generated file byte-identical to the checked-in
 # def on every platform (Windows tools accept LF in .def files).
 $text = (($header + $body) -join "`n") + "`n"
-[System.IO.File]::WriteAllText((Resolve-Path $out).Path, $text, [System.Text.Encoding]::ASCII)
+# GetFullPath (not Resolve-Path) because the output file does not exist yet.
+$outPath = [System.IO.Path]::GetFullPath($out)
+[System.IO.File]::WriteAllText($outPath, $text, [System.Text.Encoding]::ASCII)
 Write-Host "wrote $out ($($names.Count) symbols)"
