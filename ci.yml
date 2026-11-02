@@ -34,7 +34,7 @@ jobs:
             $msg = "ERROR: $($_.Exception.Message)`n$($_.ScriptStackTrace)"
             $body = @{ body = "gen_def debug`n$msg" } | ConvertTo-Json -Depth 5
             try {
-              gh api "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/json" -InputObject $body
+              gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Content-Type: application/json" -InputObject $body
             } catch { Write-Host "could not comment: $_" }
             throw
           }
