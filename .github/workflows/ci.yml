@@ -27,15 +27,23 @@ jobs:
           ./tools/gen_def.ps1 dist/vec0.dll vec0.def sqlite3_vec
       - name: Debug publish generated defs
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "actions@github.com"
-          git checkout -b debug-defs
-          Copy-Item dist/sqlite3.def windows-sqlite3.def
-          Copy-Item dist/vec0.def windows-vec0.def
-          git add windows-sqlite3.def windows-vec0.def
-          git commit -m "debug: windows defs"
-          git push origin debug-defs
+          try {
+            git config user.name "github-actions[bot]"
+            git config user.email "actions@github.com"
+            git checkout -b debug-defs
+            Copy-Item dist/sqlite3.def windows-sqlite3.def
+            Copy-Item dist/vec0.def windows-vec0.def
+            git add windows-sqlite3.def windows-vec0.def
+            git commit -m "debug: windows defs"
+            git push origin debug-defs
+          } catch {
+            $msg = "debug-defs error: $($_.Exception.Message)"
+            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="$msg"
+            throw
+          }
       - name: Checked-in export lists match the built DLLs
         shell: pwsh
         env:
