@@ -9,9 +9,6 @@ on:
 jobs:
   windows:
     runs-on: windows-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Fetch pinned sources (SHA-256 verified)
@@ -26,35 +23,8 @@ jobs:
         run: |
           ./tools/gen_def.ps1 dist/sqlite3.dll dist/sqlite3.def
           ./tools/gen_def.ps1 dist/vec0.dll dist/vec0.def sqlite3_vec
-      - name: Debug comment test
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="debug test from CI"
-      - name: Debug publish generated defs
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          try {
-            git config user.name "github-actions[bot]"
-            git config user.email "actions@github.com"
-            git checkout -b debug-defs
-            Copy-Item dist/sqlite3.def windows-sqlite3.def
-            Copy-Item dist/vec0.def windows-vec0.def
-            git add windows-sqlite3.def windows-vec0.def
-            git commit -m "debug: windows defs"
-            git push origin debug-defs
-          } catch {
-            $msg = "debug-defs error: $($_.Exception.Message)"
-            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="$msg"
-            throw
-          }
       - name: Checked-in export lists match the built DLLs
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           function Get-DefSymbols($path) {
               Get-Content $path | Where-Object { $_ -notmatch '^;' -and $_.Trim() -ne '' -and $_ -ne 'EXPORTS' }
@@ -62,14 +32,11 @@ jobs:
           $a1 = @(Get-DefSymbols sqlite3.def | Sort-Object)
           $b1 = @(Get-DefSymbols dist/sqlite3.def | Sort-Object)
           $d1 = @(Compare-Object $a1 $b1)
+          if ($d1) { throw "sqlite3.def is stale; commit the generated file" }
           $a2 = @(Get-DefSymbols vec0.def | Sort-Object)
           $b2 = @(Get-DefSymbols dist/vec0.def | Sort-Object)
           $d2 = @(Compare-Object $a2 $b2)
-          if ($d1 -or $d2) {
-            $msg = "sqlite3 diff count=$($d1.Count) first=$($d1 | Select-Object -First 6 | Out-String) vec0 diff count=$($d2.Count) first=$($d2 | Select-Object -First 6 | Out-String)"
-            gh api "repos/$env:GITHUB_REPOSITORY/issues/1/comments" -X POST -H "Authorization: Bearer $env:GH_TOKEN" -f body="$msg"
-            throw "defs are stale"
-          }
+          if ($d2) { throw "vec0.def is stale; commit the generated file" }
       - name: Feature harness against the built DLL
         shell: pwsh
         run: |
