@@ -26,10 +26,12 @@ jobs:
       - name: Checked-in export lists match the built DLLs
         shell: pwsh
         run: |
-          git diff --no-index --exit-code sqlite3.def dist/sqlite3.def
-          if ($LASTEXITCODE -ne 0) { throw "sqlite3.def is stale; commit the generated file" }
-          git diff --no-index --exit-code vec0.def dist/vec0.def
-          if ($LASTEXITCODE -ne 0) { throw "vec0.def is stale; commit the generated file" }
+          $h1 = (Get-FileHash sqlite3.def -Algorithm SHA256).Hash
+          $h2 = (Get-FileHash dist/sqlite3.def -Algorithm SHA256).Hash
+          if ($h1 -ne $h2) { throw "sqlite3.def is stale; commit the generated file" }
+          $h3 = (Get-FileHash vec0.def -Algorithm SHA256).Hash
+          $h4 = (Get-FileHash dist/vec0.def -Algorithm SHA256).Hash
+          if ($h3 -ne $h4) { throw "vec0.def is stale; commit the generated file" }
       - name: Feature harness against the built DLL
         shell: pwsh
         run: |
